@@ -2,8 +2,8 @@
 # -*- coding = utf-8 -*-
 
 """
- @ Creat Time: 2017/12/22
- @ Auther: songpo.zhang
+ @ Create Time: 2017/12/22
+ @ Author: songpo.zhang
  @ Target:
 """
 
