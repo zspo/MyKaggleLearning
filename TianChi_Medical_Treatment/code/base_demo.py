@@ -9,7 +9,7 @@ from sklearn.metrics import mean_squared_error
 
 
 
-data_path = '../data/'
+data_path = '../dataset/'
 
 train = pd.read_csv(data_path+'d_train_20180102.csv',encoding='gb2312')
 test = pd.read_csv(data_path+'d_test_A_20180102.csv',encoding='gb2312')
@@ -82,5 +82,5 @@ print('线下得分：    {}'.format(mean_squared_error(train_feat['血糖'],tra
 print('CV训练用时{}秒'.format(time.time() - t0))
 
 submission = pd.DataFrame({'pred':test_preds.mean(axis=1)})
-submission.to_csv(r'sub{}.csv'.format(datetime.datetime.now().strftime('%Y%m%d_%H%M%S')),header=None,
+submission.to_csv(r'../prediction/sub{}.csv'.format(datetime.datetime.now().strftime('%Y%m%d_%H%M%S')),header=None,
                   index=False, float_format='%.4f')
