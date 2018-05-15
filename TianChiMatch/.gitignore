@@ -1,0 +1,4 @@
+*.pyc
+.settings/
+value_cache/
+*.zip
