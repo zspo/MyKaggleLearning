@@ -45,7 +45,9 @@ def feature_process(data):
              'speed_max',
              'speed_mean',
              'speed_var',
+             'height_max',
              'height_mean',
+             'height_var',
              'sp_he_mean',
              'zao',
              'wan',
@@ -84,6 +86,8 @@ def feature_process(data):
         huru = 0
         liantong = 0
         duanlian = 0
+
+        
         
         for index, row in tempData.iterrows():
             
@@ -139,7 +143,8 @@ def feature_process(data):
         
         height_max = tempData["HEIGHT"].max()
         height_mean = tempData["HEIGHT"].mean()
-        
+        height_var = tempData['HEIGHT'].var()
+
         sp_he_mean = speed_mean * height_mean
 
         maxTimelist.append(maxTime)
@@ -160,7 +165,9 @@ def feature_process(data):
                                     'speed_max':speed_max,
                                     'speed_mean':speed_mean,
                                     'speed_var':speed_var,
+                                    'height_max':height_max,
                                     'height_mean':height_mean,
+                                    'height_var':height_var,
                                     'sp_he_mean':sp_he_mean,
                                     'zao':zao,
                                     'wan':wan,
@@ -182,6 +189,7 @@ def feature_process(data):
 def data_process(data):
     data = conver_time(data)
     feature_data = feature_process(data)
+    print(feature_data.isnull().sum())
     feature_data = feature_data.fillna(method='pad')
     return feature_data
 
@@ -191,7 +199,7 @@ def main():
     test = pd.read_csv(path_test)
 
     pre_label = label_process(train[["TERMINALNO","Y"]])
-
+    y_train = np.log1p(pre_label)
     train = train.drop('Y',axis=1)
 
     # train = conver_time(train)
@@ -210,17 +218,18 @@ def main():
     print('***************** Training Data *********************')
     # ----------------------- 线性模型 ------------------------
     model_ridge = Ridge()
-    alpha_param = {'alpha':[1.42,1.45,1.47,1.49,1.51,1.53,1.55]}
+    alpha_param = {'alpha':[1.5,1.7,1.9,2.1,2.2]}
     ridge_grid = GridSearchCV(estimator=model_ridge,param_grid=alpha_param,cv=5,n_jobs=-1)
-    ridge_grid.fit(feature_train[:,1:],pre_label)
+    ridge_grid.fit(feature_train[:,1:],y_train)
     print('The parameters of the best model are: ')
     print(ridge_grid.best_params_)
     predict_y = ridge_grid.predict(feature_test[:,1:])
+    pre = np.expm1(predict_y)
     # *********************************************************
     print('***************** Sub Data *********************')
     submission = pd.DataFrame(columns=['Id','Pred'])
     submission['Id'] = feature_test[:,0]
-    submission['Pred'] = predict_y
+    submission['Pred'] = pre
     submission.to_csv(path_test_out+ 'sub.csv',index=False)
 
 if __name__ == "__main__":

@@ -49,19 +49,16 @@ def feature_process(data):
              'height_mean',
              'height_var',
              'sp_he_mean',
-             'zao',
-             'wan',
-             'shenye',
+             'zao_ratio',
+             'wu_ratio',
+             'wan_ratio',
+             'shenye_ratio',
+             'timesafe_ratio',
              'weizhi_ratio',
              'huchu_ratio',
              'huru_ratio',
              'liantong_ratio',
-             'duanlian_ratio',
-             'call_spped0',
-             'call_spped1',
-             'call_spped2',
-             'call_spped3',
-             'call_spped4',
+             'duanlian_ratio'
             ]
     feature = pd.DataFrame(columns=columns)
     
@@ -73,34 +70,39 @@ def feature_process(data):
         tempSpeed = tempData["SPEED"].iloc[0]
         tempDir = tempData["DIRECTION"].iloc[0]
         tempHeight = tempData["HEIGHT"].iloc[0]
-        
+
         maxTime = 0
         maxTimelist = []
 
         phonerisk = 0
-
         dir_risk = 0
-
         height_risk = 0
+
         zao=0
+        wu=0
         wan=0
         shenye=0
+        timesafe=0
         
         weizhi = 0
         huchu = 0
         huru = 0
         liantong = 0
         duanlian = 0
-        
+
         for index, row in tempData.iterrows():
-            
+
             hour = row['hour']
-            if 7 <= hour <= 9:
-                zao = 1
-            elif 17 <= hour <= 19:
-                wan = 1
-            elif 0 <= hour < 7:
-                shenye = 1
+            if 5 <= hour < 8:
+                zao += 1
+            elif 11 <= hour < 14:
+                wu += 1
+            elif 17 <= hour < 22:
+                wan += 1
+            elif 0 <= hour < 4:
+                shenye += 1
+            else:
+                timesafe += 1
 
             if tempSpeed > 0 and row['CALLSTATE'] != 4:
                 if row["CALLSTATE"] == 0:
@@ -115,7 +117,7 @@ def feature_process(data):
                 dir_change = (min(abs(row["DIRECTION"] - tempDir), abs(360 + tempDir - row["DIRECTION"])) / 90.0)
                 if tempSpeed != 0 and row["SPEED"] > 0:
                     dir_risk += math.pow((row["SPEED"] / 10), dir_change)
-                
+
                 height_risk += math.pow(abs(row["SPEED"] - tempSpeed) / 10,(abs(row["HEIGHT"] - tempHeight) / 100))
                 
                 tempHeight = row["HEIGHT"]
@@ -147,11 +149,18 @@ def feature_process(data):
         height_max = tempData["HEIGHT"].max()
         height_mean = tempData["HEIGHT"].mean()
         height_var = tempData['HEIGHT'].var()
-        
+
         sp_he_mean = speed_mean * height_mean
 
         maxTimelist.append(maxTime)
         maxTime = max(maxTimelist)
+
+        total_hour = len(tempData['hour'])
+        zao_ratio = zao / float(total_hour)
+        wu_ratio = wu / float(total_hour)
+        wan_ratio = wan / float(total_hour)
+        shenye_ratio = shenye / float(total_hour)
+        timesafe_ratio = timesafe / float(total_hour)
         
         total_callstate = len(tempData["CALLSTATE"])
         weizhi_ratio = weizhi / float(total_callstate)
@@ -172,9 +181,10 @@ def feature_process(data):
                                     'height_mean':height_mean,
                                     'height_var':height_var,
                                     'sp_he_mean':sp_he_mean,
-                                    'zao':zao,
-                                    'wan':wan,
-                                    'shenye':shenye,
+                                    'zao_ratio':zao_ratio,
+                                    'wan_ratio':wan_ratio,
+                                    'shenye_ratio':shenye_ratio,
+                                    'timesafe_ratio':timesafe_ratio,
                                     'weizhi_ratio':weizhi_ratio,
                                     'huchu_ratio':huchu_ratio,
                                     'huru_ratio':huru_ratio,
@@ -182,24 +192,52 @@ def feature_process(data):
                                     'duanlian_ratio':duanlian_ratio
                                     },
                                     index=['0'],
-                                    columns=columns
-                                    )
-        
-        CALLSTATE_SET = set(tempData['CALLSTATE'])
-        call_speed = tempData["SPEED"].groupby(tempData['CALLSTATE']).mean()
-        for call_set in CALLSTATE_SET:
-            tempfeature['call_spped'+str(call_set)] = call_speed.loc[call_set]
-        
+                                    columns=columns)
         feature = feature.append(tempfeature,ignore_index=True)
 
-        
     # feature = feature.values
     return feature
+
+def speed_map(speed):
+    if speed <= 4.5:
+        return 1
+    elif (speed > 4.5) and (speed <= 15):
+        return 2
+    elif (speed > 15) and (speed <= 31.5):
+        return 3
+    else:
+        return 4
+
+def height_map(hegiht):
+    if hegiht <= 91.5:
+        return 1
+    elif (hegiht > 91.5) and (hegiht <= 451):
+        return 2
+    elif (hegiht > 451) and (hegiht <= 1570):
+        return 3
+    else:
+        return 4
+
+def speed_height(speed, height):
+    if height <= 451:
+        return 1
+    elif height > 451 and height <= 1570 and speed < 15:
+        return 2
+    elif height > 451 and height <= 1570 and speed < 31.5:
+        return 3
+    elif height > 1570 and speed > 31.5:
+        return 4
+    else:
+        return 5
 
 def data_process(data):
     data = conver_time(data)
     feature_data = feature_process(data)
+    feature_data = feature_data.fillna(method='pad')
     feature_data = feature_data.fillna(0)
+    feature_data['speed_map'] = feature_data['speed_mean'].apply(speed_map)
+    feature_data['height_map'] = feature_data['height_mean'].apply(height_map)
+    feature_data['sp_he_map'] = feature_data.apply(lambda col: speed_height(col['speed_mean'], col['height_mean']), axis=1)
     return feature_data
 
 def main():
@@ -211,7 +249,11 @@ def main():
 
     train = train.drop('Y',axis=1)
 
+    # train = conver_time(train)
+    # test = conver_time(test)
     print('***************** Process Data *********************')
+    # feature_train = feature_process(train)
+    # feature_test = feature_process(test)
 
     feature_train = data_process(train)
     feature_train = feature_train.values
@@ -219,10 +261,11 @@ def main():
     feature_test = data_process(test)
     feature_test = feature_test.values
     
+
     print('***************** Training Data *********************')
     # ----------------------- 线性模型 ------------------------
     model_ridge = Ridge()
-    alpha_param = {'alpha':[3.0,3.4,3.8,4.1,4.5,5.0]}
+    alpha_param = {'alpha':[1.3,1.5,1.7,1.9,2.1,2.2]}
     ridge_grid = GridSearchCV(estimator=model_ridge,param_grid=alpha_param,cv=5,n_jobs=-1)
     ridge_grid.fit(feature_train[:,1:],pre_label)
     print('The parameters of the best model are: ')
